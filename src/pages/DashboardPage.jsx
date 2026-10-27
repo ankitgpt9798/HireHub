@@ -45,8 +45,13 @@ export default function DashboardPage() {
           <EmptyState
             icon={Inbox}
             titleAs="h3"
-            title="No listings to show yet"
-            description="Recently posted jobs will appear here once job data is connected."
+            title="Recent listings will appear here"
+            description="A summary of newly posted jobs is on the way. Until then, browse every listing on Discover Jobs."
+            action={
+              <ButtonLink to="/jobs" variant="secondary">
+                Browse jobs
+              </ButtonLink>
+            }
           />
         </Card>
         <Card as="section" aria-labelledby="saved-summary-heading">

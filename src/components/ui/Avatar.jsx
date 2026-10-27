@@ -1,13 +1,5 @@
 import { cn } from '../../utils/cn.js'
-
-function getInitials(name) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join('')
-}
+import { getInitials } from '../../utils/getInitials.js'
 
 // Decorative initials avatar: render the person's name as visible or screen-reader text next to it.
 export function Avatar({ name, className }) {

@@ -16,10 +16,11 @@ Early development. In place so far:
 - The responsive app shell: sidebar navigation on desktop, a slide-over menu on smaller screens,
   and a top bar with a notifications panel and a demo profile
 - Brand colors, typography, and a small set of reusable UI components
+- 24 sample job listings from 10 fictional companies (`src/data/mockJobs.js`)
+- The Discover Jobs page, which renders every sample listing as a job card
 
-The pages are still placeholders. They show the planned layout and explain what will appear
-there, but there is no job data yet, so no listings, metrics, or saved jobs are shown. The
-features below are planned.
+The Dashboard, Job Details, and Saved Jobs pages are still placeholders: they show the
+planned layout and explain what will appear there. The features below are planned.
 
 ## Planned features
 
@@ -81,17 +82,47 @@ src/
     feedback/           Loading, error, and empty states
     ui/                 Reusable UI primitives (buttons, cards, badges, page header)
   context/              React context providers
-  data/                 Mock job data
+  data/                 Sample job data (fictional companies)
   hooks/                Custom hooks
   pages/                Route-level page components
   services/             Simulated API service layer
   styles/               Global styles and Tailwind entry point
   test/                 Test setup and test suites
-  utils/                Pure helpers (filtering, sorting, formatting)
+  utils/                Pure helpers (formatting, and later filtering and sorting)
   main.jsx              Application entry point
 ```
 
 Empty folders contain a `.gitkeep` file until their first module is added.
+
+## Sample data
+
+`src/data/mockJobs.js` exports `mockJobs` (24 listings, newest first) and `companies`
+(10 fictional companies). The data is for demonstration only. The companies are invented,
+and the listings and salaries are illustrative, not real or verified job postings. The app
+says so in the sidebar and on the Discover Jobs page.
+
+Each listing has this shape:
+
+| Field              | Values                                                                 |
+| ------------------ | ---------------------------------------------------------------------- |
+| `id`               | `'job-001'` … `'job-024'` (used in the `/jobs/:jobId` route)           |
+| `title`, `location`, `description` | Text. Remote roles use locations such as `'Remote (US)'` |
+| `company`          | One of the `companies` objects: `id`, `name`, `industry`, `size`, `headquarters`, `about` |
+| `workArrangement`  | `'remote'`, `'hybrid'`, or `'on-site'`                                  |
+| `employmentType`   | `'full-time'`, `'part-time'`, `'contract'`, or `'internship'`           |
+| `experienceLevel`  | `'entry'`, `'mid'`, `'senior'`, or `'lead'`                             |
+| `salary`           | `{ min, max, currency: 'USD', period: 'year' \| 'hour' }`, or `null` when not listed |
+| `skills`           | Array of skill names, e.g. `['React', 'TypeScript']`                   |
+| `postedAt`         | ISO date string                                                        |
+| `responsibilities`, `qualifications` | Arrays of text, for the job details page             |
+
+Posted dates are computed relative to when the app loads (from 3 hours to 45 days ago), so
+the listings keep a realistic spread of ages however long after they were written.
+
+`src/utils/formatJob.js` holds the display labels for the categorical fields
+(`WORK_ARRANGEMENT_LABELS`, `EMPLOYMENT_TYPE_LABELS`, `EXPERIENCE_LEVEL_LABELS`) and the
+formatters `formatSalary` ("$145K–$175K per year"), `formatPostedDate` ("3 days ago"), and
+`formatFullDate` ("Oct 24, 2026").
 
 ## Routes
 
@@ -117,6 +148,12 @@ Empty folders contain a `.gitkeep` file until their first module is added.
   an accessible `label`), `Card`, `CardHeader`, `Badge`, `Avatar`, and `PageHeader` (which also
   sets the document title). `EmptyState` (`components/feedback`) and `MetricCard`
   (`components/dashboard`) build on them.
+- **Job components** (`src/components/jobs`): `JobCard` shows a listing's role, company,
+  work arrangement, employment type, experience level, location, salary ("Salary not
+  listed" when there is none), skills, and posted date, with a "View details" link.
+  `JobList` lays cards out in a responsive grid (one column on phones, two from the `md`
+  breakpoint, three at `2xl`). `CompanyLogo` is an initials placeholder whose color is
+  derived from the company name.
 - **Accessibility:** a skip link to the main content, visible focus outlines,
   `aria-current` on the active navigation link, and reduced motion when the operating system
   asks for it.
@@ -131,6 +168,9 @@ Tests run in a jsdom environment with Vitest and React Testing Library. Test fil
 | `routing.test.jsx`    | Routes, document titles, navigation state, skip link        |
 | `layout.test.jsx`     | App shell, mobile menu, notifications panel                 |
 | `ui.test.jsx`         | Reusable UI components                                      |
+| `jobs.test.jsx`       | Job card, company logo, and the Discover Jobs listing page   |
+| `formatJob.test.js`   | Salary and posted-date formatting                           |
+| `mockJobs.test.js`    | Sample data integrity (ids, field values, dates, salaries)  |
 
 ```powershell
 npm test

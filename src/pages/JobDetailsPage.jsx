@@ -25,8 +25,8 @@ export default function JobDetailsPage() {
           title="Job details are not available yet"
           description={
             <>
-              Details for listing <span className="font-medium text-slate-900">{jobId}</span> will
-              appear here once job data is connected.
+              The full description, responsibilities, and qualifications for listing{' '}
+              <span className="font-medium text-slate-900">{jobId}</span> will appear here.
             </>
           }
         />
