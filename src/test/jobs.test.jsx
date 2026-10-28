@@ -93,13 +93,16 @@ describe('CompanyLogo', () => {
 })
 
 describe('Discover Jobs page', () => {
-  it('renders a card for every sample listing', () => {
+  it('renders cards for the newest sample listings, a page at a time', () => {
     renderRoute('/jobs')
     const listings = screen.getByRole('region', { name: 'Job listings' })
+    const firstPage = mockJobs.slice(0, 12)
 
-    expect(within(listings).getAllByRole('article')).toHaveLength(mockJobs.length)
-    expect(within(listings).getByText(`${mockJobs.length} listings`)).toBeInTheDocument()
-    for (const { title } of mockJobs) {
+    expect(within(listings).getAllByRole('article')).toHaveLength(firstPage.length)
+    expect(
+      within(listings).getByText(`${mockJobs.length} listings, showing 1–12`),
+    ).toBeInTheDocument()
+    for (const { title } of firstPage) {
       expect(within(listings).getByRole('article', { name: title })).toBeInTheDocument()
     }
   })

@@ -62,11 +62,12 @@ export const EMPTY_FILTERS = {
 const FILTER_GROUPS = [...Object.keys(CHOICE_FILTERS), 'minSalary', 'postedWithin', 'skills']
 
 // The top of a job's pay range, per year.
-function yearlyPay(salary) {
+export function yearlyPay(salary) {
   return salary.period === 'hour' ? salary.max * HOURS_PER_YEAR : salary.max
 }
 
-function hasSkill(job, skill) {
+// Whether `job` lists `skill`, ignoring case.
+export function hasSkill(job, skill) {
   const wanted = skill.toLowerCase()
   return job.skills.some((jobSkill) => jobSkill.toLowerCase() === wanted)
 }

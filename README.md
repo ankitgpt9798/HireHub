@@ -24,13 +24,14 @@ Early development. In place so far:
 - Filters on the Discover Jobs page: work arrangement, employment type, experience level,
   minimum salary, date posted, and skills (all or any), with job counts beside each option,
   removable filter chips, and clear-all (see [Filters](#filters))
+- Sorting (most relevant, newest, highest salary) and numbered pages of 12 listings, both
+  working together with the search and filters (see [Sorting and pages](#sorting-and-pages))
 
 The Dashboard, Job Details, and Saved Jobs pages are still placeholders: they show the
 planned layout and explain what will appear there. The features below are planned.
 
 ## Planned features
 
-- Sorting and pagination that work together with search and filters
 - Job details page and saved jobs persisted in `localStorage`
 - Dashboard metrics computed from the listing data
 - Simulated API with loading skeletons, error handling with retry, and empty states
@@ -91,7 +92,7 @@ src/
   services/             Simulated API service layer
   styles/               Global styles and Tailwind entry point
   test/                 Test setup and test suites
-  utils/                Pure helpers (formatting, search, filtering, and later sorting)
+  utils/                Pure helpers (formatting, search, filtering, sorting, pagination)
   main.jsx              Application entry point
 ```
 
@@ -137,7 +138,8 @@ The search box on the Discover Jobs page narrows the listings as you type.
 - **How it matches:** case and accents are ignored ("montreal" finds "Montréal"), and every
   word of the query must match somewhere in the listing, so "senior react" finds senior roles
   that list React. A word matches from the start of a word in the listing: "go" finds "Go"
-  but not "Chicago". Results keep their original order.
+  but not "Chicago". Results are sorted by relevance unless another order is chosen (see
+  [Sorting and pages](#sorting-and-pages)).
 - **When it runs:** results update once typing pauses for 300 ms, or immediately on Enter.
   The clear button and Escape empty the box and show every listing again.
 - **Results:** a count above the list ("4 of 24 listings match “react”") is a live region, so
@@ -147,8 +149,8 @@ The search box on the Discover Jobs page narrows the listings as you type.
   survives a reload and a trip to a job's details page and back. Typing replaces the current
   history entry instead of adding one per pause, and back/forward navigation updates the box.
 
-The pieces are `searchJobs(jobs, query)` in `src/utils/searchJobs.js` (the pure matching
-logic), `useDebouncedValue` and `useSearchQuery` in `src/hooks/` (the debounce and the
+The pieces are `searchJobs(jobs, query)` and `relevanceScorer(query)` in
+`src/utils/searchJobs.js` (the pure matching and scoring logic), `useDebouncedValue` and `useSearchQuery` in `src/hooks/` (the debounce and the
 box/URL state), and `SearchBar` in `src/components/filters/` (the search form).
 
 ## Filters
@@ -192,7 +194,50 @@ The matching, counting, and chip logic is in `src/utils/filterJobs.js`, and the 
 controls are in `src/components/filters/` (`FilterPanel`, `SkillFilter`, `ActiveFilters`, and
 `FilterDrawer`).
 
-Search and filter changes are written to the URL with React Router's `flushSync` option, so
+## Sorting and pages
+
+The **Sort by** control above the results orders them, and the results are split into pages
+of 12 listings (whole rows in the one-, two-, and three-column layouts).
+
+| Sort order     | Puts first                                                              |
+| -------------- | ----------------------------------------------------------------------- |
+| Most relevant  | The best matches for the search (the default)                           |
+| Newest         | The most recently posted listings                                       |
+| Highest salary | The highest top of the pay range per year; listings without a salary go last |
+
+- **Relevance:** each word of the search scores by where it matches: 3 points in the title,
+  2 in the company name or a skill, 1 in the location or a card label (work arrangement,
+  employment type, experience level), plus 1 when it matches a whole word, so "java" ranks a
+  job that lists Java above one that lists JavaScript. Each chosen skill a job lists adds a
+  point, so with "Any selected skill" the jobs with more of them come first. Without a search
+  or chosen skills, Most relevant is the same as Newest.
+- **Salary:** hourly rates count as full-time yearly pay (2,080 hours), as in the salary filter.
+- **Ties:** listings that score the same go newest first.
+- **Pages:** a count above the results says which listings are showing ("24 listings, showing
+  1–12"). Below them, Previous, Next, and a link to each page; long ranges keep the first and
+  last pages and the pages around the current one, with "…" for the rest. Phones show
+  "Page 1 of 2" between Previous and Next instead of the numbers. Previous and Next are
+  disabled at either end, and the page links are hidden when every result fits on one page.
+- **Moving between pages** scrolls back to the top of the results and moves focus to the
+  "Job listings" heading, so keyboard and screen reader users start reading the new page from
+  its top. The count above the results is a live region, so the new range is announced.
+- **Starting over:** a new search, a filter change, or a new sort order goes back to page 1.
+- **A page past the end** (for example an old link to page 5) shows an empty state that says
+  where the results end, with links to page 1 and the last page.
+- **In the URL:** the order is stored as `?sort=newest` or `?sort=salary` and the page as
+  `?page=2`, next to the search and filters; each is left out at its default. Changing the
+  order replaces the current history entry, like a filter change. Page links add one, so Back
+  and Forward step between pages, and coming back from a job's details page returns to the same
+  page. Orders the app does not offer, and page numbers that are not whole numbers from 1, are
+  ignored.
+
+The ordering is `sortJobs(jobs, sort, { query, skills })` in `src/utils/sortJobs.js`, the page
+logic `paginate` and `getPageNumbers` in `src/utils/pagination.js`, and the URL format in
+`src/utils/resultsParams.js`. `useSortOrder` and `useResultsPage` (`src/hooks/`) connect them to
+the URL. The controls are `SortSelect` (`src/components/filters/`) and `Pagination`
+(`src/components/ui/`).
+
+Search, filter, and sort changes are written to the URL with React Router's `flushSync` option, so
 they render straight away instead of in a transition: a checkbox shows its new state at once,
 and a quick second change starts from the first. This needs the `RouterProvider` from
 `react-router/dom`, which `src/app/App.jsx` and the tests use.
@@ -202,7 +247,7 @@ and a quick second change starts from the first. This needs the `RouterProvider`
 | Path           | Page          |
 | -------------- | ------------- |
 | `/`            | Dashboard     |
-| `/jobs`        | Discover Jobs (accepts `?q=` for a search and [filter parameters](#filters)) |
+| `/jobs`        | Discover Jobs (accepts `?q=` for a search, [filter parameters](#filters), and `?sort=` and `?page=` ([sorting and pages](#sorting-and-pages))) |
 | `/jobs/:jobId` | Job Details   |
 | `/saved`       | Saved Jobs    |
 | any other path | Not Found     |
@@ -220,8 +265,9 @@ and a quick second change starts from the first. This needs the `RouterProvider`
   inert.
 - **Reusable components** (`src/components/ui`): `Button`, `ButtonLink`, `IconButton` (needs
   an accessible `label`), `Card`, `CardHeader`, `Badge`, `Avatar`, `PageHeader` (which also
-  sets the document title), and `Drawer` (a slide-over on a modal `<dialog>`, used by the
-  mobile menu and the filters). `EmptyState` (`components/feedback`) and `MetricCard`
+  sets the document title), `Drawer` (a slide-over on a modal `<dialog>`, used by the
+  mobile menu and the filters), and `Pagination` (Previous, Next, and page links built from a
+  `pageLink(page)` function). `EmptyState` (`components/feedback`) and `MetricCard`
   (`components/dashboard`) build on them.
 - **Job components** (`src/components/jobs`): `JobCard` shows a listing's role, company,
   work arrangement, employment type, experience level, location, salary ("Salary not
@@ -243,16 +289,20 @@ Tests run in a jsdom environment with Vitest and React Testing Library. Test fil
 | --------------------- | ---------------------------------------------------------- |
 | `routing.test.jsx`    | Routes, document titles, navigation state, skip link        |
 | `layout.test.jsx`     | App shell, mobile menu, notifications panel                 |
-| `ui.test.jsx`         | Reusable UI components                                      |
+| `ui.test.jsx`         | Reusable UI components, including the pagination bar        |
 | `jobs.test.jsx`       | Job card, company logo, and the Discover Jobs listing page   |
 | `formatJob.test.js`   | Salary and posted-date formatting                           |
 | `mockJobs.test.js`    | Sample data integrity (ids, field values, dates, salaries)  |
-| `searchJobs.test.js`  | Search matching: case, accents, multiple words, word starts, special characters |
+| `searchJobs.test.js`  | Search matching (case, accents, multiple words, word starts, special characters) and relevance scores |
 | `useDebouncedValue.test.js` | Debounce timing, restarts, and cleanup on unmount     |
 | `search.test.jsx`     | Search on the Discover Jobs page: debounce, Enter, clearing, empty state, URL and history |
 | `filterJobs.test.js`  | Filter matching (OR within a group, AND across groups, skills all/any, salary, dates), chips, and option counts |
 | `filterParams.test.js` | Reading and writing filters in the URL, including values the app does not offer |
 | `filters.test.jsx`    | Filters on the Discover Jobs page: every group, chips and focus, clear-all, search together, URL, empty states, the drawer |
+| `sortJobs.test.js`    | Sorting by relevance, date, and salary: weights, whole words, chosen skills, hourly pay, missing salaries, ties |
+| `pagination.test.js`  | Splitting results into pages and choosing which page numbers to show |
+| `resultsParams.test.js` | Reading and writing the sort order and page in the URL, including invalid values |
+| `results.test.jsx`    | Sorting and pages on the Discover Jobs page: order, URL and history, going back to page 1, pages past the end, focus |
 
 ```powershell
 npm test
@@ -260,7 +310,7 @@ npm test
 
 `src/test/setup.js` registers the `jest-dom` matchers, cleans up after each test, and adds a
 minimal `showModal()`/`close()` shim, because jsdom does not implement the `<dialog>` modal
-API. Route-level tests use `src/test/renderRoute.jsx`, which mounts the real route objects
+API, and an empty `scrollIntoView()`, because jsdom does not lay pages out. Route-level tests use `src/test/renderRoute.jsx`, which mounts the real route objects
 from `src/app/router.jsx` in a memory router.
 
 Tests that depend on the search debounce use Vitest's fake timers. Testing Library only

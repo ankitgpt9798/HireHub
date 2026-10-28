@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from 'react'
 import { useNavigationType, useSearchParams } from 'react-router'
+import { writePageToParams } from '../utils/resultsParams.js'
 import { useDebouncedValue } from './useDebouncedValue.js'
 
 export const SEARCH_PARAM = 'q'
@@ -38,7 +39,8 @@ export function useSearchQuery() {
       (params) => {
         if (nextQuery) params.set(SEARCH_PARAM, nextQuery)
         else params.delete(SEARCH_PARAM)
-        return params
+        // A new search shows its results from the first page.
+        return writePageToParams(params, 1)
       },
       // One history entry per visit, not one per pause in typing. `flushSync` renders the new
       // URL straight away instead of in a transition, so a filter change made right after

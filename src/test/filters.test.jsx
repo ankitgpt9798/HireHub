@@ -35,6 +35,17 @@ function getResultsSummary() {
   return within(getListings()).getByRole('status')
 }
 
+// As on the Discover Jobs page.
+const JOBS_PER_PAGE = 12
+
+// Nothing rules a listing out, so the results are the first page of every listing.
+function expectEveryListing() {
+  expect(getResultsSummary()).toHaveTextContent(
+    new RegExp(`^${mockJobs.length} listings, showing 1–${JOBS_PER_PAGE}$`),
+  )
+  expect(getListedTitles()).toHaveLength(JOBS_PER_PAGE)
+}
+
 function getChipNames() {
   const chips = within(getListings()).queryByRole('list', { name: 'Active filters' })
   return chips ? within(chips).getAllByRole('button').map((chip) => chip.textContent) : []
@@ -95,7 +106,9 @@ describe('job filters', () => {
 
     await user.click(getOption(getFilterPanel(), 'Remote'))
     await user.click(getOption(getFilterPanel(), 'Hybrid'))
-    expect(getListedTitles()).toHaveLength(18)
+    expect(getResultsSummary()).toHaveTextContent(
+      `18 of ${mockJobs.length} listings match your filters, showing 1–${JOBS_PER_PAGE}`,
+    )
 
     await user.click(getOption(getFilterPanel(), 'Contract'))
     expect(getListedTitles()).toEqual(['Frontend Developer', 'Android Engineer'])
@@ -116,11 +129,12 @@ describe('job filters', () => {
     expect(within(matching).getByRole('radio', { name: 'All selected skills' })).toBeChecked()
 
     await user.click(within(matching).getByRole('radio', { name: 'Any selected skill' }))
+    // Sorted by relevance: jobs that list both skills come first.
     expect(getListedTitles()).toEqual([
       'Senior Frontend Engineer',
+      'Full Stack Engineer',
       'Frontend Developer',
       'QA Automation Engineer',
-      'Full Stack Engineer',
       'Junior Web Developer',
     ])
     expect(router.state.location.search).toBe('?skill=React&skill=TypeScript&match=any')
@@ -196,7 +210,7 @@ describe('job filters', () => {
     await user.click(getChip('Remote'))
     expect(getChipNames()).toEqual([])
     expect(screen.getByRole('heading', { name: 'Job listings' })).toHaveFocus()
-    expect(getListedTitles()).toHaveLength(mockJobs.length)
+    expectEveryListing()
   })
 
   it('clears every filter with "Clear all" and moves focus to the results', async () => {
@@ -272,7 +286,7 @@ describe('job filters', () => {
 
     await user.click(within(listings).getByRole('button', { name: 'Clear filters' }))
 
-    expect(getListedTitles()).toHaveLength(mockJobs.length)
+    expectEveryListing()
     expect(screen.getByRole('heading', { name: 'Job listings' })).toHaveFocus()
   })
 

@@ -16,6 +16,11 @@ if (!HTMLDialogElement.prototype.close) {
   }
 }
 
+// jsdom does not lay pages out, so it has no scrolling to do.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {}
+}
+
 afterEach(() => {
   cleanup()
 })

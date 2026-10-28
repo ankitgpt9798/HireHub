@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mockJobs } from '../data/mockJobs.js'
-import { searchJobs } from '../utils/searchJobs.js'
+import { relevanceScorer, searchJobs } from '../utils/searchJobs.js'
 
 function makeJob(id, overrides) {
   return {
@@ -124,5 +124,44 @@ describe('searchJobs', () => {
     ['intern', ['job-008', 'job-020']],
   ])('finds the matching sample listings for "%s"', (query, expected) => {
     expect(searchIds(query, mockJobs)).toEqual(expected)
+  })
+})
+
+describe('relevanceScorer', () => {
+  const [frontend, backend, intern, fullStack] = jobs
+
+  it('scores each word by the most telling field it matches, plus 1 for a whole word', () => {
+    // Whole words: title 4, company or skill 3, location or card label 2.
+    expect(relevanceScorer('frontend')(frontend)).toBe(4)
+    expect(relevanceScorer('harborline')(backend)).toBe(3)
+    expect(relevanceScorer('typescript')(frontend)).toBe(3)
+    expect(relevanceScorer('seattle')(backend)).toBe(2)
+    expect(relevanceScorer('internship')(intern)).toBe(2)
+    // The start of a word: one point less.
+    expect(relevanceScorer('front')(frontend)).toBe(3)
+    expect(relevanceScorer('harbor')(backend)).toBe(2)
+    expect(relevanceScorer('sea')(backend)).toBe(1)
+  })
+
+  it('uses the best field when a word matches in more than one', () => {
+    // "intern" is a whole word in the title ("Robotics Intern") and also starts the
+    // "Internship" label, which counts for less.
+    expect(relevanceScorer('intern')(intern)).toBe(4)
+  })
+
+  it('adds up the words of the query', () => {
+    expect(relevanceScorer('senior react')(frontend)).toBe(4 + 3)
+    expect(relevanceScorer('remote typescript')(frontend)).toBe(2 + 3)
+  })
+
+  it('gives nothing for words that do not match, or for a blank query', () => {
+    expect(relevanceScorer('python')(frontend)).toBe(0)
+    expect(relevanceScorer('')(frontend)).toBe(0)
+    expect(relevanceScorer('   ')(fullStack)).toBe(0)
+  })
+
+  it('ignores case and accents like the search does', () => {
+    expect(relevanceScorer('MONTREAL')(fullStack)).toBe(2)
+    expect(relevanceScorer('node.js')(fullStack)).toBe(3)
   })
 })

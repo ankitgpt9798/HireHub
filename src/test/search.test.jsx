@@ -34,6 +34,17 @@ function getResultsSummary() {
   return within(getListings()).getByRole('status')
 }
 
+// As on the Discover Jobs page.
+const JOBS_PER_PAGE = 12
+
+// Nothing rules a listing out, so the results are the first page of every listing.
+function expectEveryListing() {
+  expect(getResultsSummary()).toHaveTextContent(
+    new RegExp(`^${mockJobs.length} listings, showing 1–${JOBS_PER_PAGE}$`),
+  )
+  expect(getListedTitles()).toHaveLength(JOBS_PER_PAGE)
+}
+
 async function waitForTypingPause() {
   await act(() => vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS))
 }
@@ -65,7 +76,7 @@ describe('job search', () => {
 
     await user.type(getSearchBox(), 'react')
     expect(getSearchBox()).toHaveValue('react')
-    expect(getListedTitles()).toHaveLength(mockJobs.length)
+    expectEveryListing()
 
     await waitForTypingPause()
     expect(getListedTitles()).toEqual(REACT_JOB_TITLES)
@@ -132,7 +143,7 @@ describe('job search', () => {
 
     expect(getSearchBox()).toHaveValue('')
     expect(getSearchBox()).toHaveFocus()
-    expect(getListedTitles()).toHaveLength(mockJobs.length)
+    expectEveryListing()
     expect(router.state.location.search).toBe('')
     expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument()
   })
@@ -145,7 +156,7 @@ describe('job search', () => {
     await user.keyboard('{Escape}')
 
     expect(getSearchBox()).toHaveValue('')
-    expect(getListedTitles()).toHaveLength(mockJobs.length)
+    expectEveryListing()
   })
 
   it('shows an empty state with a way out when nothing matches', async () => {
@@ -164,7 +175,7 @@ describe('job search', () => {
 
     expect(getSearchBox()).toHaveValue('')
     expect(getSearchBox()).toHaveFocus()
-    expect(getListedTitles()).toHaveLength(mockJobs.length)
+    expectEveryListing()
   })
 
   it('keeps the search when coming back from a job details page', async () => {
@@ -190,7 +201,7 @@ describe('job search', () => {
 
     await user.click(within(nav).getByRole('link', { name: 'Discover Jobs' }))
     expect(getSearchBox()).toHaveValue('')
-    expect(getListedTitles()).toHaveLength(mockJobs.length)
+    expectEveryListing()
 
     await act(() => router.navigate(-1))
     expect(getSearchBox()).toHaveValue('react')
