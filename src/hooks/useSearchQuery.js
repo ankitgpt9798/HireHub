@@ -40,15 +40,19 @@ export function useSearchQuery() {
         else params.delete(SEARCH_PARAM)
         return params
       },
-      // One history entry per visit, not one per pause in typing.
-      { replace: true },
+      // One history entry per visit, not one per pause in typing. `flushSync` renders the new
+      // URL straight away instead of in a transition, so a filter change made right after
+      // starts from it rather than from the previous URL.
+      { replace: true, flushSync: true },
     )
   }
 
   const debouncedInput = useDebouncedValue(input, SEARCH_DEBOUNCE_MS)
   const onInputSettled = useEffectEvent(writeQuery)
   useEffect(() => {
-    onInputSettled(debouncedInput)
+    // From a microtask, because React cannot flushSync (see writeQuery) while it is still
+    // running effects.
+    queueMicrotask(() => onInputSettled(debouncedInput))
   }, [debouncedInput])
 
   // Sets the box's text and searches for it immediately (for Enter and clearing).

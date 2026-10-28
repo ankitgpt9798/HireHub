@@ -3,11 +3,7 @@ import {
   EXPERIENCE_LEVEL_LABELS,
   WORK_ARRANGEMENT_LABELS,
 } from './formatJob.js'
-
-// Lowercases text and strips accents, so "Montréal" and "MONTREAL" both become "montreal".
-function normalize(text) {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-}
+import { normalizeText } from './normalizeText.js'
 
 function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -16,7 +12,7 @@ function escapeRegExp(text) {
 // The text a search looks through: the title, company, location, and skills, plus the
 // labels shown on the card, so searches such as "remote", "internship", or "senior" work too.
 function searchableText(job) {
-  return normalize(
+  return normalizeText(
     [
       job.title,
       job.company.name,
@@ -38,7 +34,7 @@ function termPattern(term) {
 // accents, and every word of the query has to match, so "senior react" finds senior roles
 // that list React. A blank query returns `jobs` itself.
 export function searchJobs(jobs, query) {
-  const terms = normalize(query).split(/\s+/).filter(Boolean)
+  const terms = normalizeText(query).split(/\s+/).filter(Boolean)
   if (terms.length === 0) return jobs
 
   const patterns = terms.map(termPattern)

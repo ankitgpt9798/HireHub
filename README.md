@@ -21,14 +21,15 @@ Early development. In place so far:
 - Search on the Discover Jobs page: by title, company, location, skills, work arrangement,
   employment type, and experience level, with a live results count and an empty state when
   nothing matches (see [Search](#search))
+- Filters on the Discover Jobs page: work arrangement, employment type, experience level,
+  minimum salary, date posted, and skills (all or any), with job counts beside each option,
+  removable filter chips, and clear-all (see [Filters](#filters))
 
 The Dashboard, Job Details, and Saved Jobs pages are still placeholders: they show the
 planned layout and explain what will appear there. The features below are planned.
 
 ## Planned features
 
-- Multi-tag filtering (work arrangement, employment type, experience level, salary, date
-  posted, skills) with removable filter chips and clear-all
 - Sorting and pagination that work together with search and filters
 - Job details page and saved jobs persisted in `localStorage`
 - Dashboard metrics computed from the listing data
@@ -90,7 +91,7 @@ src/
   services/             Simulated API service layer
   styles/               Global styles and Tailwind entry point
   test/                 Test setup and test suites
-  utils/                Pure helpers (formatting, search, and later filtering and sorting)
+  utils/                Pure helpers (formatting, search, filtering, and later sorting)
   main.jsx              Application entry point
 ```
 
@@ -150,12 +151,58 @@ The pieces are `searchJobs(jobs, query)` in `src/utils/searchJobs.js` (the pure 
 logic), `useDebouncedValue` and `useSearchQuery` in `src/hooks/` (the debounce and the
 box/URL state), and `SearchBar` in `src/components/filters/` (the search form).
 
+## Filters
+
+Filters narrow the listings further, together with the search. From the `xl` breakpoint
+(1280px) they sit in a panel beside the results. On smaller screens the **Filters** button next
+to the search box (which shows how many filters are active) opens the same panel in a
+slide-over, whose footer button shows how many jobs match and closes it.
+
+| Filter           | Choices                                                         |
+| ---------------- | --------------------------------------------------------------- |
+| Work arrangement | Remote, Hybrid, On-site                                         |
+| Employment type  | Full-time, Part-time, Contract, Internship                      |
+| Experience level | Entry level, Mid level, Senior level, Lead                      |
+| Salary           | One minimum: $50K+, $75K+, $100K+, $150K+, or $200K+ per year     |
+| Date posted      | One of: past 24 hours, 3 days, week, 2 weeks, or month          |
+| Skills           | Any of the 68 skills in the listings; jobs must list all chosen skills, or any of them |
+
+- **How filters combine:** choices within a group match any of them ("Remote" or "Hybrid"),
+  and the groups combine, so a job has to pass every group that has a choice. Skills match
+  all chosen skills by default; with two or more chosen, the panel offers "Any selected skill".
+- **Salary:** a job passes when the top of its pay range reaches the minimum. Hourly rates are
+  compared as full-time yearly pay (2,080 hours), and listings without a salary are left out
+  while a minimum is set.
+- **Date posted:** "Past week" keeps jobs posted less than 7 days ago, and so on.
+- **Counts:** the number beside each option is how many jobs would show if it were the only
+  choice in its group, with the search and the other groups applied.
+- **Skills list:** the 10 most common skills show first, plus any already chosen. "Find a
+  skill" narrows the list by name, and "Show all 68 skills" lists every one.
+- **Active filters:** each choice appears as a chip above the results; removing a chip keeps
+  the other filters, and "Clear all" removes them all. Focus moves to the next chip, or to the
+  "Job listings" heading when the last one goes. When nothing matches, the empty state offers
+  to clear the filters, the search, or both.
+- **In the URL:** filters are stored next to the search, with one parameter per choice, for
+  example `/jobs?q=engineer&arrangement=remote&arrangement=hybrid&skill=React&salary=100000&posted=7&match=any`.
+  Like the search, they survive a reload and a trip to a job's details page, and changing them
+  replaces the current history entry. Values the app does not offer are ignored.
+
+The matching, counting, and chip logic is in `src/utils/filterJobs.js`, and the URL format in
+`src/utils/filterParams.js`. `useJobFilters` (`src/hooks/`) connects them to the URL, and the
+controls are in `src/components/filters/` (`FilterPanel`, `SkillFilter`, `ActiveFilters`, and
+`FilterDrawer`).
+
+Search and filter changes are written to the URL with React Router's `flushSync` option, so
+they render straight away instead of in a transition: a checkbox shows its new state at once,
+and a quick second change starts from the first. This needs the `RouterProvider` from
+`react-router/dom`, which `src/app/App.jsx` and the tests use.
+
 ## Routes
 
 | Path           | Page          |
 | -------------- | ------------- |
 | `/`            | Dashboard     |
-| `/jobs`        | Discover Jobs (accepts `?q=` for a search) |
+| `/jobs`        | Discover Jobs (accepts `?q=` for a search and [filter parameters](#filters)) |
 | `/jobs/:jobId` | Job Details   |
 | `/saved`       | Saved Jobs    |
 | any other path | Not Found     |
@@ -168,17 +215,20 @@ box/URL state), and `SearchBar` in `src/components/filters/` (the search form).
   `text-2xl`/`sm:text-3xl`, section titles `text-base font-semibold`, and body text `text-sm`.
 - **Layout:** at the `lg` breakpoint (1024px) and up, a fixed 16rem sidebar holds the primary
   navigation. Below it, the sidebar is hidden and the menu button in the top bar opens the
-  same navigation in a slide-over built on the native `<dialog>` element. The browser then
-  traps focus, closes it on Escape, and makes the page behind it inert.
+  same navigation in a slide-over built on the native `<dialog>` element (the `Drawer`
+  component). The browser then traps focus, closes it on Escape, and makes the page behind it
+  inert.
 - **Reusable components** (`src/components/ui`): `Button`, `ButtonLink`, `IconButton` (needs
-  an accessible `label`), `Card`, `CardHeader`, `Badge`, `Avatar`, and `PageHeader` (which also
-  sets the document title). `EmptyState` (`components/feedback`) and `MetricCard`
+  an accessible `label`), `Card`, `CardHeader`, `Badge`, `Avatar`, `PageHeader` (which also
+  sets the document title), and `Drawer` (a slide-over on a modal `<dialog>`, used by the
+  mobile menu and the filters). `EmptyState` (`components/feedback`) and `MetricCard`
   (`components/dashboard`) build on them.
 - **Job components** (`src/components/jobs`): `JobCard` shows a listing's role, company,
   work arrangement, employment type, experience level, location, salary ("Salary not
   listed" when there is none), skills, and posted date, with a "View details" link.
-  `JobList` lays cards out in a responsive grid (one column on phones, two from the `md`
-  breakpoint, three at `2xl`). `CompanyLogo` is an initials placeholder whose color is
+  `JobList` lays cards out in a grid whose columns follow the space the list has, using a
+  container query (one column when narrow, two from 42rem, three from 64rem), so it adapts
+  when the filter panel sits beside it. `CompanyLogo` is an initials placeholder whose color is
   derived from the company name.
 - **Accessibility:** a skip link to the main content, visible focus outlines,
   `aria-current` on the active navigation link, and reduced motion when the operating system
@@ -200,6 +250,9 @@ Tests run in a jsdom environment with Vitest and React Testing Library. Test fil
 | `searchJobs.test.js`  | Search matching: case, accents, multiple words, word starts, special characters |
 | `useDebouncedValue.test.js` | Debounce timing, restarts, and cleanup on unmount     |
 | `search.test.jsx`     | Search on the Discover Jobs page: debounce, Enter, clearing, empty state, URL and history |
+| `filterJobs.test.js`  | Filter matching (OR within a group, AND across groups, skills all/any, salary, dates), chips, and option counts |
+| `filterParams.test.js` | Reading and writing filters in the URL, including values the app does not offer |
+| `filters.test.jsx`    | Filters on the Discover Jobs page: every group, chips and focus, clear-all, search together, URL, empty states, the drawer |
 
 ```powershell
 npm test
