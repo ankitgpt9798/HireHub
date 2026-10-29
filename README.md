@@ -26,6 +26,9 @@ Early development. In place so far:
   removable filter chips, and clear-all (see [Filters](#filters))
 - Sorting (most relevant, newest, highest salary) and numbered pages of 12 listings, both
   working together with the search and filters (see [Sorting and pages](#sorting-and-pages))
+- A simulated job API with delays and controllable failures. The listings load from it once
+  and are shared by every page, and the Discover Jobs page shows loading, failed (with
+  "Try again"), and no-listings states (see [Simulated API](#simulated-api))
 
 The Dashboard, Job Details, and Saved Jobs pages are still placeholders: they show the
 planned layout and explain what will appear there. The features below are planned.
@@ -34,7 +37,8 @@ planned layout and explain what will appear there. The features below are planne
 
 - Job details page and saved jobs persisted in `localStorage`
 - Dashboard metrics computed from the listing data
-- Simulated API with loading skeletons, error handling with retry, and empty states
+- Loading skeletons, an error boundary, a development-only control for the simulated API's
+  failures, and polished empty states
 - Accessible, keyboard-friendly, responsive layout for desktop, tablet, and mobile
 
 ## Tech stack
@@ -85,7 +89,7 @@ src/
     dashboard/          Dashboard components (metric cards)
     feedback/           Loading, error, and empty states
     ui/                 Reusable UI primitives (buttons, cards, badges, page header)
-  context/              React context providers
+  context/              React context: the shared job listings (JobsProvider)
   data/                 Sample job data (fictional companies)
   hooks/                Custom hooks
   pages/                Route-level page components
@@ -96,14 +100,13 @@ src/
   main.jsx              Application entry point
 ```
 
-Empty folders contain a `.gitkeep` file until their first module is added.
-
 ## Sample data
 
 `src/data/mockJobs.js` exports `mockJobs` (24 listings, newest first) and `companies`
 (10 fictional companies). The data is for demonstration only. The companies are invented,
 and the listings and salaries are illustrative, not real or verified job postings. The app
-says so in the sidebar and on the Discover Jobs page.
+says so in the sidebar and on the Discover Jobs page. Pages do not import this file: they get
+the listings through the [simulated API](#simulated-api).
 
 Each listing has this shape:
 
@@ -127,6 +130,51 @@ the listings keep a realistic spread of ages however long after they were writte
 (`WORK_ARRANGEMENT_LABELS`, `EMPLOYMENT_TYPE_LABELS`, `EXPERIENCE_LEVEL_LABELS`) and the
 formatters `formatSalary` ("$145K–$175K per year"), `formatPostedDate` ("3 days ago"), and
 `formatFullDate` ("Oct 24, 2026").
+
+## Simulated API
+
+HireHub has no backend. `src/services/jobService.js` stands in for one: it answers from the
+sample data after a delay, as a request over the network would, and it can be told to fail.
+Components never import the sample data or set timers for this themselves.
+
+| Function                   | Answers with                                                       |
+| -------------------------- | ------------------------------------------------------------------ |
+| `fetchJobs({ signal })`    | Every listing, newest first                                         |
+| `fetchJob(id, { signal })` | One listing, or a `JobServiceError` with `code: 'not-found'`        |
+
+- **Delay:** each answer takes a random 300–900 ms.
+- **Failures:** `setSimulation({ mode: 'error' })` makes every request fail with a
+  `JobServiceError` whose `code` is `'unavailable'`. `failureRate` (from 0 to 1) makes that
+  share of requests fail in normal mode, like a flaky network. `mode: 'empty'` answers as if
+  there were no listings. `resetSimulation()` restores the defaults, and requests already on
+  their way finish with the settings they started with.
+- **Aborting:** pass an `AbortSignal` to stop waiting. The request then rejects with an
+  `AbortError`.
+- **Copies:** answers are copies of the sample data, as if they had come over the network, so
+  nothing in the app can change the data itself.
+
+**Data access.** `JobsProvider` (`src/context/`) sits above every route. It requests the
+listings once when the app starts and shares them, so going back to a page shows them straight
+away instead of loading them again. Pages read them with `useJobs()` (`src/hooks/`), which
+returns `{ jobs, status, error, reload }`. It is built on `useRequest(key, load)`, which tracks a
+request's status (`'loading'`, `'success'`, or `'error'`) and keeps the latest answer while the
+request runs again. It also handles stale requests: a new key, a retry, or unmounting aborts
+the request before it, and an answer to that request is ignored even if it arrives later.
+
+Search, filters, sorting, and pages work on the loaded listings in the browser, so they update
+straight away without new requests.
+
+**On the Discover Jobs page:**
+
+- While the listings load for the first time, the count says "Loading job listings…" and the
+  results show a spinner. The search box works straight away, while the filters, the Filters
+  button, and the sort order wait for the listings. A search, filters, order, and page in the
+  URL apply as soon as the listings arrive.
+- If the request fails, the results explain that the listings could not be loaded and offer
+  **Try again**. If there are no listings at all, they say so and offer **Refresh**. Both move
+  focus to the "Job listings" heading and load the listings again.
+- The results area has `aria-busy="true"` while a request is on its way, and the count is a
+  live region, so screen readers announce when the listings arrive.
 
 ## Search
 
@@ -297,12 +345,15 @@ Tests run in a jsdom environment with Vitest and React Testing Library. Test fil
 | `useDebouncedValue.test.js` | Debounce timing, restarts, and cleanup on unmount     |
 | `search.test.jsx`     | Search on the Discover Jobs page: debounce, Enter, clearing, empty state, URL and history |
 | `filterJobs.test.js`  | Filter matching (OR within a group, AND across groups, skills all/any, salary, dates), chips, and option counts |
-| `filterParams.test.js` | Reading and writing filters in the URL, including values the app does not offer |
+| `filterParams.test.js` | Reading and writing filters in the URL, including values the app does not offer and skills read before the listings load |
 | `filters.test.jsx`    | Filters on the Discover Jobs page: every group, chips and focus, clear-all, search together, URL, empty states, the drawer |
 | `sortJobs.test.js`    | Sorting by relevance, date, and salary: weights, whole words, chosen skills, hourly pay, missing salaries, ties |
 | `pagination.test.js`  | Splitting results into pages and choosing which page numbers to show |
 | `resultsParams.test.js` | Reading and writing the sort order and page in the URL, including invalid values |
 | `results.test.jsx`    | Sorting and pages on the Discover Jobs page: order, URL and history, going back to page 1, pages past the end, focus |
+| `jobService.test.js`  | The simulated API: delays, copies, error and empty modes, failure rate, aborting, not-found |
+| `useRequest.test.jsx` | Request state, retries, keeping data while reloading, ignoring stale answers, aborting on unmount |
+| `listingsData.test.jsx` | The Discover Jobs page with the simulated API: loading, failure and Try again, no listings, URL state applied on arrival, listings shared between pages |
 
 ```powershell
 npm test
@@ -310,8 +361,15 @@ npm test
 
 `src/test/setup.js` registers the `jest-dom` matchers, cleans up after each test, and adds a
 minimal `showModal()`/`close()` shim, because jsdom does not implement the `<dialog>` modal
-API, and an empty `scrollIntoView()`, because jsdom does not lay pages out. Route-level tests use `src/test/renderRoute.jsx`, which mounts the real route objects
-from `src/app/router.jsx` in a memory router.
+API, and an empty `scrollIntoView()`, because jsdom does not lay pages out. It also sets the
+simulated API to answer without a delay and resets its settings after every test.
+
+Route-level tests use `renderRoute(path)` from `src/test/renderRoute.jsx`, which mounts the
+real route objects from `src/app/router.jsx` in a memory router. It is async and waits until
+the listings have arrived, so tests start from a loaded page (`await renderRoute('/jobs')`).
+Tests of the loading state set a delay first, for example
+`setSimulation({ minDelayMs: 50, maxDelayMs: 50 })`, and tests of failures set
+`mode: 'error'` or `'empty'`.
 
 Tests that depend on the search debounce use Vitest's fake timers. Testing Library only
 advances fake timers when it finds a global `jest` object, so `search.test.jsx` stubs one that

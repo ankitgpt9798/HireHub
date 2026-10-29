@@ -13,30 +13,30 @@ async function openMobileNav(user) {
 }
 
 describe('app shell', () => {
-  it('shows the brand, demo-data notice, and demo user', () => {
-    renderRoute('/')
+  it('shows the brand, demo-data notice, and demo user', async () => {
+    await renderRoute('/')
     expect(screen.getAllByRole('link', { name: 'HireHub' }).length).toBeGreaterThan(0)
     expect(screen.getByText('Demo data')).toBeInTheDocument()
     expect(screen.getByText(/sample data for demonstration/i)).toBeInTheDocument()
     expect(screen.getByText('Guest User')).toBeInTheDocument()
   })
 
-  it('does not show hardcoded dashboard metrics', () => {
-    renderRoute('/')
+  it('does not show hardcoded dashboard metrics', async () => {
+    await renderRoute('/')
     const overview = screen.getByRole('region', { name: 'Overview' })
     expect(within(overview).getAllByText('No data yet')).toHaveLength(4)
   })
 })
 
 describe('mobile navigation', () => {
-  it('is closed initially', () => {
-    renderRoute('/')
+  it('is closed initially', async () => {
+    await renderRoute('/')
     expect(queryMobileNav()).not.toBeInTheDocument()
   })
 
   it('opens and navigates, closing after a link is chosen', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
     const dialog = await openMobileNav(user)
 
     await user.click(within(dialog).getByRole('link', { name: 'Saved Jobs' }))
@@ -47,7 +47,7 @@ describe('mobile navigation', () => {
 
   it('closes when the link for the current page is chosen', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
     const dialog = await openMobileNav(user)
 
     await user.click(within(dialog).getByRole('link', { name: 'Dashboard' }))
@@ -56,7 +56,7 @@ describe('mobile navigation', () => {
 
   it('closes with the close button', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
     const dialog = await openMobileNav(user)
 
     await user.click(within(dialog).getByRole('button', { name: 'Close navigation menu' }))
@@ -65,7 +65,7 @@ describe('mobile navigation', () => {
 
   it('closes on Escape (the dialog cancel event)', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
     const dialog = await openMobileNav(user)
 
     fireEvent(dialog, new Event('cancel', { cancelable: true }))
@@ -74,7 +74,7 @@ describe('mobile navigation', () => {
 
   it('closes when the backdrop is clicked but not when the menu content is clicked', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
     const dialog = await openMobileNav(user)
 
     await user.click(within(dialog).getByText('Demo data'))
@@ -88,7 +88,7 @@ describe('mobile navigation', () => {
 describe('notifications panel', () => {
   it('toggles open and closed from its button', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
     const button = screen.getByRole('button', { name: 'Notifications' })
     expect(button).toHaveAttribute('aria-expanded', 'false')
 
@@ -105,7 +105,7 @@ describe('notifications panel', () => {
 
   it('closes on Escape and returns focus to the button', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
     const button = screen.getByRole('button', { name: 'Notifications' })
 
     await user.click(button)
@@ -121,7 +121,7 @@ describe('notifications panel', () => {
 
   it('stays open when clicked inside and closes when clicking elsewhere', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    await renderRoute('/')
 
     await user.click(screen.getByRole('button', { name: 'Notifications' }))
     await user.click(screen.getByText('You have no new notifications.'))

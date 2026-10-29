@@ -32,7 +32,7 @@ function renderCard(overrides = {}) {
 }
 
 describe('JobCard', () => {
-  it('shows the role, company, and job type', () => {
+  it('shows the role, company, and job type', async () => {
     const card = renderCard()
 
     expect(within(card).getByRole('heading', { level: 3, name: 'Platform Engineer' })).toBeInTheDocument()
@@ -42,7 +42,7 @@ describe('JobCard', () => {
     expect(within(card).getByText('Senior level')).toBeInTheDocument()
   })
 
-  it('labels the location and salary for screen readers', () => {
+  it('labels the location and salary for screen readers', async () => {
     const card = renderCard()
 
     expect(within(card).getByText('Location')).toHaveClass('sr-only')
@@ -51,12 +51,12 @@ describe('JobCard', () => {
     expect(within(card).getByText('$90–$110 per hour')).toBeInTheDocument()
   })
 
-  it('says when a salary is not listed', () => {
+  it('says when a salary is not listed', async () => {
     const card = renderCard({ salary: null })
     expect(within(card).getByText('Salary not listed')).toBeInTheDocument()
   })
 
-  it('lists the required skills', () => {
+  it('lists the required skills', async () => {
     const card = renderCard()
     const skills = within(card).getByRole('list', { name: 'Skills' })
 
@@ -67,7 +67,7 @@ describe('JobCard', () => {
     ])
   })
 
-  it('shows when the job was posted with a machine-readable date', () => {
+  it('shows when the job was posted with a machine-readable date', async () => {
     const card = renderCard()
     const time = within(card).getByText('2 days ago')
 
@@ -75,7 +75,7 @@ describe('JobCard', () => {
     expect(time).toHaveAttribute('datetime', job.postedAt)
   })
 
-  it('links to the job details page with a descriptive accessible name', () => {
+  it('links to the job details page with a descriptive accessible name', async () => {
     const card = renderCard()
 
     expect(
@@ -85,7 +85,7 @@ describe('JobCard', () => {
 })
 
 describe('CompanyLogo', () => {
-  it('shows decorative initials for the company', () => {
+  it('shows decorative initials for the company', async () => {
     const { container } = render(<CompanyLogo name="Acme Widgets" />)
     expect(container.firstChild).toHaveTextContent('AW')
     expect(container.firstChild).toHaveAttribute('aria-hidden', 'true')
@@ -93,8 +93,8 @@ describe('CompanyLogo', () => {
 })
 
 describe('Discover Jobs page', () => {
-  it('renders cards for the newest sample listings, a page at a time', () => {
-    renderRoute('/jobs')
+  it('renders cards for the newest sample listings, a page at a time', async () => {
+    await renderRoute('/jobs')
     const listings = screen.getByRole('region', { name: 'Job listings' })
     const firstPage = mockJobs.slice(0, 12)
 
@@ -107,15 +107,15 @@ describe('Discover Jobs page', () => {
     }
   })
 
-  it('labels the listings as sample data', () => {
-    renderRoute('/jobs')
+  it('labels the listings as sample data', async () => {
+    await renderRoute('/jobs')
     expect(screen.getByText('Sample data, not live postings')).toBeInTheDocument()
   })
 
   it("opens a job's details page from its card", async () => {
     const user = userEvent.setup()
     const [firstJob] = mockJobs
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
 
     await user.click(
       screen.getByRole('link', {

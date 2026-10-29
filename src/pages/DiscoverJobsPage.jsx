@@ -1,5 +1,14 @@
-import { FileQuestion, Info, SearchX, SlidersHorizontal } from 'lucide-react'
-import { useCallback, useId, useRef, useState } from 'react'
+import {
+  CloudOff,
+  FileQuestion,
+  Inbox,
+  Info,
+  LoaderCircle,
+  RotateCw,
+  SearchX,
+  SlidersHorizontal,
+} from 'lucide-react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import ActiveFilters from '../components/filters/ActiveFilters.jsx'
 import FilterDrawer from '../components/filters/FilterDrawer.jsx'
@@ -12,8 +21,8 @@ import { Button, ButtonLink } from '../components/ui/Button.jsx'
 import { Card } from '../components/ui/Card.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { Pagination } from '../components/ui/Pagination.jsx'
-import { mockJobs } from '../data/mockJobs.js'
 import { useJobFilters } from '../hooks/useJobFilters.js'
+import { useJobs } from '../hooks/useJobs.js'
 import { useResultsPage } from '../hooks/useResultsPage.js'
 import { useSearchQuery } from '../hooks/useSearchQuery.js'
 import { useSortOrder } from '../hooks/useSortOrder.js'
@@ -29,7 +38,8 @@ import { paginate } from '../utils/pagination.js'
 import { searchJobs } from '../utils/searchJobs.js'
 import { sortJobs } from '../utils/sortJobs.js'
 
-const SKILL_OPTIONS = getSkillOptions(mockJobs)
+// Until the listings arrive. One shared empty list, so memoized values do not change.
+const NO_JOBS = []
 
 // Fills whole rows in the one-, two-, and three-column layouts of the job list.
 const JOBS_PER_PAGE = 12
@@ -39,6 +49,54 @@ function resultsSummary(count, total, query, isFiltered) {
   if (!query && !isFiltered) return `${total} listings`
   const criteria = [query && `“${query}”`, isFiltered && 'your filters'].filter(Boolean).join(' and ')
   return `${count} of ${total} listings ${count === 1 ? 'matches' : 'match'} ${criteria}`
+}
+
+// While the listings load for the first time.
+function ListingsLoading() {
+  return (
+    <Card className="flex justify-center py-16">
+      <LoaderCircle aria-hidden="true" className="size-6 animate-spin text-brand-600" />
+    </Card>
+  )
+}
+
+function ListingsError({ onRetry }) {
+  return (
+    <Card>
+      <EmptyState
+        icon={CloudOff}
+        titleAs="h3"
+        title="The job listings could not be loaded"
+        description="The job service did not respond. This is usually temporary, so please try again."
+        action={
+          <Button onClick={onRetry}>
+            <RotateCw aria-hidden="true" className="size-4" />
+            Try again
+          </Button>
+        }
+      />
+    </Card>
+  )
+}
+
+// When the job service answers with no listings at all.
+function NoListings({ onRefresh }) {
+  return (
+    <Card>
+      <EmptyState
+        icon={Inbox}
+        titleAs="h3"
+        title="No job listings right now"
+        description="The job service has no listings to show. Check back later, or refresh to ask again."
+        action={
+          <Button variant="secondary" onClick={onRefresh}>
+            <RotateCw aria-hidden="true" className="size-4" />
+            Refresh
+          </Button>
+        }
+      />
+    </Card>
+  )
 }
 
 // For a page number past the end of the results, such as an old link to page 3 after the
@@ -111,8 +169,19 @@ function NoResults({ query, isFiltered, onClearSearch, onClearFilters }) {
 }
 
 export default function DiscoverJobsPage() {
+  const { jobs: loadedJobs, status, reload } = useJobs()
+  const allJobs = loadedJobs ?? NO_JOBS
+  const hasListings = allJobs.length > 0
+  const isLoadingListings = !hasListings && status === 'loading'
+  const failedToLoad = !hasListings && status === 'error'
+  // Null until the listings arrive, so skills in the URL are kept until they can be checked.
+  const skillOptions = useMemo(
+    () => (loadedJobs ? getSkillOptions(loadedJobs) : null),
+    [loadedJobs],
+  )
+
   const { query, input, setInput, applyInput } = useSearchQuery()
-  const [filters, updateFilters] = useJobFilters(SKILL_OPTIONS)
+  const [filters, updateFilters] = useJobFilters(skillOptions)
   const [sort, setSort] = useSortOrder()
   const [page, pageLink] = useResultsPage()
   const [isFilterDrawerOpen, setFilterDrawerOpen] = useState(false)
@@ -121,7 +190,7 @@ export default function DiscoverJobsPage() {
   const listingsHeadingRef = useRef(null)
   const filtersHeadingId = useId()
 
-  const searchedJobs = searchJobs(mockJobs, query)
+  const searchedJobs = searchJobs(allJobs, query)
   const jobs = filterJobs(searchedJobs, filters)
   const sortedJobs = sortJobs(jobs, sort, { query, skills: filters.skills })
   const { items: pageJobs, pageCount, firstItem, lastItem } = paginate(
@@ -134,7 +203,7 @@ export default function DiscoverJobsPage() {
   const panelProps = {
     filters,
     counts: getFilterCounts(searchedJobs, filters),
-    skillOptions: SKILL_OPTIONS,
+    skillOptions: skillOptions ?? [],
     onChange: updateFilters,
   }
 
@@ -160,8 +229,25 @@ export default function DiscoverJobsPage() {
     heading.scrollIntoView({ block: 'start' })
   }
 
+  // For the buttons that start loading the listings again, which disappear while they load.
+  function reloadListings() {
+    reload()
+    listingsHeadingRef.current.focus()
+  }
+
+  let summary = resultsSummary(jobs.length, allJobs.length, query, isFiltered)
+  if (pageCount > 1 && pageJobs.length > 0) summary += `, showing ${firstItem}–${lastItem}`
+  if (isLoadingListings) summary = 'Loading job listings…'
+  if (failedToLoad) summary = 'The job listings could not be loaded.'
+
   let results
-  if (jobs.length === 0) {
+  if (isLoadingListings) {
+    results = <ListingsLoading />
+  } else if (failedToLoad) {
+    results = <ListingsError onRetry={reloadListings} />
+  } else if (!hasListings) {
+    results = <NoListings onRefresh={reloadListings} />
+  } else if (jobs.length === 0) {
     results = (
       <NoResults
         query={query}
@@ -219,6 +305,7 @@ export default function DiscoverJobsPage() {
           variant="secondary"
           size="lg"
           aria-haspopup="dialog"
+          disabled={!hasListings}
           onClick={() => setFilterDrawerOpen(true)}
           className="xl:hidden"
         >
@@ -246,13 +333,21 @@ export default function DiscoverJobsPage() {
             <h2 id={filtersHeadingId} className="text-base font-semibold text-slate-900">
               Filters
             </h2>
-            {isFiltered && (
+            {hasListings && isFiltered && (
               <Button variant="ghost" size="sm" onClick={clearFiltersAndFocusResults}>
                 Clear all
               </Button>
             )}
           </div>
-          <FilterPanel {...panelProps} />
+          {hasListings ? (
+            <FilterPanel {...panelProps} />
+          ) : (
+            <p className="p-4 text-sm text-slate-500">
+              {isLoadingListings && 'Loading filters…'}
+              {failedToLoad && 'Filters are available once the listings load.'}
+              {status === 'success' && 'There are no listings to filter.'}
+            </p>
+          )}
         </Card>
 
         <section aria-labelledby="job-listings-heading" className="space-y-4">
@@ -270,8 +365,7 @@ export default function DiscoverJobsPage() {
               </h2>
               {/* A live region, so screen readers announce the new count after each change. */}
               <p role="status" className="text-sm text-slate-600">
-                {resultsSummary(jobs.length, mockJobs.length, query, isFiltered)}
-                {pageCount > 1 && pageJobs.length > 0 && `, showing ${firstItem}–${lastItem}`}
+                {summary}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -279,11 +373,11 @@ export default function DiscoverJobsPage() {
                 <Info aria-hidden="true" className="size-3.5" />
                 Sample data, not live postings
               </Badge>
-              <SortSelect value={sort} onChange={setSort} />
+              <SortSelect value={sort} onChange={setSort} disabled={!hasListings} />
             </div>
           </div>
 
-          {isFiltered && (
+          {hasListings && isFiltered && (
             <ActiveFilters
               activeFilters={activeFilters}
               onRemove={(filter) => updateFilters((current) => removeFilter(current, filter))}
@@ -292,18 +386,23 @@ export default function DiscoverJobsPage() {
             />
           )}
 
-          {results}
+          {/* Busy while the listings load, including when they are loaded again. */}
+          <div aria-busy={status === 'loading'} className="space-y-4">
+            {results}
+          </div>
         </section>
       </div>
 
-      <FilterDrawer
-        isOpen={isFilterDrawerOpen}
-        onClose={closeFilterDrawer}
-        resultCount={jobs.length}
-        isFiltered={isFiltered}
-        onClearAll={clearFilters}
-        {...panelProps}
-      />
+      {hasListings && (
+        <FilterDrawer
+          isOpen={isFilterDrawerOpen}
+          onClose={closeFilterDrawer}
+          resultCount={jobs.length}
+          isFiltered={isFiltered}
+          onClearAll={clearFilters}
+          {...panelProps}
+        />
+      )}
     </div>
   )
 }

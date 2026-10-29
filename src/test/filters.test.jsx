@@ -56,8 +56,8 @@ function getChip(label) {
 }
 
 describe('job filters', () => {
-  it('shows each filter group with the number of jobs for each option', () => {
-    renderRoute('/jobs')
+  it('shows each filter group with the number of jobs for each option', async () => {
+    await renderRoute('/jobs')
     const panel = getFilterPanel()
 
     expect(within(panel).getByRole('group', { name: 'Work arrangement' })).toBeInTheDocument()
@@ -86,7 +86,7 @@ describe('job filters', () => {
 
   it('filters by a choice and updates the count, the chips, and the URL', async () => {
     const user = userEvent.setup()
-    const router = renderRoute('/jobs')
+    const router = await renderRoute('/jobs')
 
     await user.click(getOption(getFilterPanel(), 'Remote'))
 
@@ -102,7 +102,7 @@ describe('job filters', () => {
 
   it('combines choices with OR within a group and AND across groups', async () => {
     const user = userEvent.setup()
-    const router = renderRoute('/jobs')
+    const router = await renderRoute('/jobs')
 
     await user.click(getOption(getFilterPanel(), 'Remote'))
     await user.click(getOption(getFilterPanel(), 'Hybrid'))
@@ -117,7 +117,7 @@ describe('job filters', () => {
 
   it('requires every chosen skill by default, or any of them on request', async () => {
     const user = userEvent.setup()
-    const router = renderRoute('/jobs')
+    const router = await renderRoute('/jobs')
     const skills = within(getFilterPanel()).getByRole('group', { name: 'Skills' })
     expect(within(skills).queryByRole('group', { name: 'Show jobs that list' })).not.toBeInTheDocument()
 
@@ -142,7 +142,7 @@ describe('job filters', () => {
 
   it('filters by minimum salary, counting hourly pay as full-time yearly pay', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
 
     await user.click(getOption(getFilterPanel(), '$150K+', 'radio'))
 
@@ -166,7 +166,7 @@ describe('job filters', () => {
 
   it('filters by date posted', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
     const option = getOption(getFilterPanel(), 'Past 3 days', 'radio')
     expect(option).toHaveAccessibleName('Past 3 days 6 jobs')
 
@@ -185,7 +185,7 @@ describe('job filters', () => {
 
   it('removes one filter with its chip, keeping the others and moving focus along the chips', async () => {
     const user = userEvent.setup()
-    const router = renderRoute('/jobs?arrangement=remote&type=full-time&skill=AWS')
+    const router = await renderRoute('/jobs?arrangement=remote&type=full-time&skill=AWS')
     expect(getChipNames()).toEqual([
       'Remove filter: Remote',
       'Remove filter: Full-time',
@@ -215,7 +215,7 @@ describe('job filters', () => {
 
   it('clears every filter with "Clear all" and moves focus to the results', async () => {
     const user = userEvent.setup()
-    const router = renderRoute('/jobs?q=engineer&level=senior&salary=100000&match=any')
+    const router = await renderRoute('/jobs?q=engineer&level=senior&salary=100000&match=any')
 
     await user.click(within(getListings()).getByRole('button', { name: 'Clear all' }))
 
@@ -228,7 +228,7 @@ describe('job filters', () => {
 
   it('clears every filter from the filter panel too', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs?posted=7')
+    await renderRoute('/jobs?posted=7')
     const panel = getFilterPanel()
 
     await user.click(within(panel).getByRole('button', { name: 'Clear all' }))
@@ -240,7 +240,7 @@ describe('job filters', () => {
 
   it('combines filters with the search and counts options within the search results', async () => {
     const user = userEvent.setup()
-    const router = renderRoute('/jobs?q=react')
+    const router = await renderRoute('/jobs?q=react')
     const panel = getFilterPanel()
     expect(within(panel).getByRole('checkbox', { name: 'Remote 3 jobs' })).toBeInTheDocument()
     expect(within(panel).getByRole('checkbox', { name: 'On-site 1 job' })).toBeInTheDocument()
@@ -259,8 +259,8 @@ describe('job filters', () => {
     expect(router.state.location.search).toBe('?q=react&arrangement=remote')
   })
 
-  it('restores filters from the URL and ignores values it does not offer', () => {
-    renderRoute('/jobs?arrangement=remote&arrangement=moon&skill=react&salary=123&posted=7')
+  it('restores filters from the URL and ignores values it does not offer', async () => {
+    await renderRoute('/jobs?arrangement=remote&arrangement=moon&skill=react&salary=123&posted=7')
     const panel = getFilterPanel()
 
     expect(getOption(panel, 'Remote')).toBeChecked()
@@ -277,7 +277,7 @@ describe('job filters', () => {
 
   it('shows an empty state with a way out when no job matches the filters', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs?type=internship&level=lead')
+    await renderRoute('/jobs?type=internship&level=lead')
     const listings = getListings()
 
     expect(within(listings).getByRole('heading', { name: 'No jobs match your filters' })).toBeInTheDocument()
@@ -292,7 +292,7 @@ describe('job filters', () => {
 
   it('offers to clear the search or the filters when both rule out every job', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs?q=react&type=internship')
+    await renderRoute('/jobs?q=react&type=internship')
     const listings = getListings()
 
     expect(
@@ -307,7 +307,7 @@ describe('job filters', () => {
 
   it('finds a skill by name and can show every skill', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
     const skills = within(getFilterPanel()).getByRole('group', { name: 'Skills' })
     const finder = within(skills).getByRole('searchbox', { name: 'Find a skill' })
 
@@ -338,7 +338,7 @@ describe('job filters', () => {
 
   it('keeps the filters when coming back from a job details page', async () => {
     const user = userEvent.setup()
-    const router = renderRoute('/jobs')
+    const router = await renderRoute('/jobs')
 
     await user.click(getOption(getFilterPanel(), 'Remote'))
     await user.click(
@@ -360,7 +360,7 @@ describe('filters drawer', () => {
 
   it('opens from the Filters button, applies filters straight away, and closes', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
     const button = screen.getByRole('button', { name: 'Filters' })
     expect(button).toHaveAttribute('aria-haspopup', 'dialog')
     expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument()
@@ -379,7 +379,7 @@ describe('filters drawer', () => {
 
   it('clears filters from the drawer and keeps focus inside it', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs?arrangement=remote&type=contract')
+    await renderRoute('/jobs?arrangement=remote&type=contract')
 
     await user.click(screen.getByRole('button', { name: 'Filters (2 active)' }))
     await user.click(within(getDrawer()).getByRole('button', { name: 'Clear all' }))
@@ -392,7 +392,7 @@ describe('filters drawer', () => {
 
   it('uses singular wording for one job and closes with its close button', async () => {
     const user = userEvent.setup()
-    renderRoute('/jobs?skill=Kotlin')
+    await renderRoute('/jobs?skill=Kotlin')
 
     await user.click(screen.getByRole('button', { name: 'Filters (1 active)' }))
     expect(within(getDrawer()).getByRole('button', { name: 'Show 1 job' })).toBeInTheDocument()

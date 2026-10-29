@@ -72,3 +72,21 @@ describe('writeFiltersToParams', () => {
     expect(filtersFromParams(params, SKILLS)).toEqual(ALL_FILTERS)
   })
 })
+
+describe('skills before the skill list is known', () => {
+  it('keeps every skill in the URL as written, without repeats', () => {
+    const params = new URLSearchParams('skill=react&skill=Made%20Up&skill=REACT&skill=%20&skill=SQL%20')
+
+    expect(filtersFromParams(params, null).skills).toEqual(['react', 'Made Up', 'SQL'])
+  })
+
+  it('still reads the other filters', () => {
+    const params = new URLSearchParams('arrangement=remote&match=any&skill=React')
+
+    expect(filtersFromParams(params, null)).toMatchObject({
+      workArrangements: ['remote'],
+      skills: ['React'],
+      skillMatch: 'any',
+    })
+  })
+})

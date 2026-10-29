@@ -1,4 +1,5 @@
 import AppLayout from '../components/layout/AppLayout.jsx'
+import JobsProvider from '../context/JobsProvider.jsx'
 import DashboardPage from '../pages/DashboardPage.jsx'
 import DiscoverJobsPage from '../pages/DiscoverJobsPage.jsx'
 import JobDetailsPage from '../pages/JobDetailsPage.jsx'
@@ -10,7 +11,12 @@ import SavedJobsPage from '../pages/SavedJobsPage.jsx'
 export const routes = [
   {
     path: '/',
-    element: <AppLayout />,
+    // Above every page, so the listings load once and are shared.
+    element: (
+      <JobsProvider>
+        <AppLayout />
+      </JobsProvider>
+    ),
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'jobs', element: <DiscoverJobsPage /> },

@@ -3,7 +3,7 @@ import { useId } from 'react'
 import { SORT_OPTIONS } from '../../utils/sortJobs.js'
 
 // A labelled select for the results' sort order. `onChange` receives the chosen value.
-export default function SortSelect({ value, onChange }) {
+export default function SortSelect({ value, onChange, disabled = false }) {
   const selectId = useId()
 
   return (
@@ -15,8 +15,9 @@ export default function SortSelect({ value, onChange }) {
         <select
           id={selectId}
           value={value}
+          disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
-          className="h-10 cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white pr-9 pl-3 text-base font-medium text-slate-900 shadow-sm transition-colors hover:border-slate-400 sm:text-sm"
+          className="h-10 cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white pr-9 pl-3 text-base font-medium text-slate-900 shadow-sm transition-colors hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>

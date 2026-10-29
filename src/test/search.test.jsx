@@ -62,8 +62,8 @@ describe('job search', () => {
     vi.useRealTimers()
   })
 
-  it('shows a labelled search box on the Discover Jobs page', () => {
-    renderRoute('/jobs')
+  it('shows a labelled search box on the Discover Jobs page', async () => {
+    await renderRoute('/jobs')
 
     expect(screen.getByRole('search', { name: 'Search jobs' })).toContainElement(getSearchBox())
     expect(getSearchBox()).toHaveValue('')
@@ -72,7 +72,7 @@ describe('job search', () => {
 
   it('updates the results and the URL once typing pauses', async () => {
     const user = setupUser()
-    const router = renderRoute('/jobs')
+    const router = await renderRoute('/jobs')
 
     await user.type(getSearchBox(), 'react')
     expect(getSearchBox()).toHaveValue('react')
@@ -87,7 +87,7 @@ describe('job search', () => {
 
   it('keeps typing that continues after the URL has updated', async () => {
     const user = setupUser()
-    const router = renderRoute('/jobs')
+    const router = await renderRoute('/jobs')
 
     await user.type(getSearchBox(), 'reac')
     await waitForTypingPause()
@@ -103,7 +103,7 @@ describe('job search', () => {
 
   it('searches immediately on Enter', async () => {
     const user = setupUser()
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
 
     await user.type(getSearchBox(), 'harborline{Enter}')
 
@@ -117,7 +117,7 @@ describe('job search', () => {
 
   it('uses singular wording for a single match', async () => {
     const user = setupUser()
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
 
     await user.type(getSearchBox(), 'senior react{Enter}')
 
@@ -127,8 +127,8 @@ describe('job search', () => {
     )
   })
 
-  it('restores a search from the URL', () => {
-    renderRoute('/jobs?q=new%20york')
+  it('restores a search from the URL', async () => {
+    await renderRoute('/jobs?q=new%20york')
 
     expect(getSearchBox()).toHaveValue('new york')
     expect(getListedTitles()).toEqual(['Engineering Manager, Payments', 'Senior iOS Engineer'])
@@ -136,7 +136,7 @@ describe('job search', () => {
 
   it('clears the search with the clear button and returns focus to the box', async () => {
     const user = setupUser()
-    const router = renderRoute('/jobs?q=react')
+    const router = await renderRoute('/jobs?q=react')
     expect(getListedTitles()).toEqual(REACT_JOB_TITLES)
 
     await user.click(screen.getByRole('button', { name: 'Clear search' }))
@@ -150,7 +150,7 @@ describe('job search', () => {
 
   it('clears the search with Escape', async () => {
     const user = setupUser()
-    renderRoute('/jobs?q=react')
+    await renderRoute('/jobs?q=react')
 
     await user.click(getSearchBox())
     await user.keyboard('{Escape}')
@@ -161,7 +161,7 @@ describe('job search', () => {
 
   it('shows an empty state with a way out when nothing matches', async () => {
     const user = setupUser()
-    renderRoute('/jobs')
+    await renderRoute('/jobs')
 
     await user.type(getSearchBox(), 'zzzz{Enter}')
 
@@ -180,7 +180,7 @@ describe('job search', () => {
 
   it('keeps the search when coming back from a job details page', async () => {
     const user = setupUser()
-    const router = renderRoute('/jobs?q=react')
+    const router = await renderRoute('/jobs?q=react')
 
     await user.click(
       screen.getByRole('link', { name: 'View details for Frontend Developer at Quillstack' }),
@@ -196,7 +196,7 @@ describe('job search', () => {
 
   it('follows the URL when a link or back/forward navigation changes the search', async () => {
     const user = setupUser()
-    const router = renderRoute('/jobs?q=react')
+    const router = await renderRoute('/jobs?q=react')
     const nav = screen.getByRole('navigation', { name: 'Primary' })
 
     await user.click(within(nav).getByRole('link', { name: 'Discover Jobs' }))

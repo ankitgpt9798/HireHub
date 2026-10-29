@@ -18,7 +18,8 @@ function optionValue(options, param) {
 
 // Reads filters from URL search params. Values the app does not offer are ignored, so an
 // edited or outdated link still opens. `skillNames` lists the skills that can be chosen;
-// skills in the URL match them ignoring case.
+// skills in the URL match them ignoring case. While the skills are not known yet (`skillNames`
+// is null, for example before the listings load), every skill in the URL is kept as written.
 export function filtersFromParams(params, skillNames) {
   const filters = { ...EMPTY_FILTERS }
 
@@ -32,7 +33,11 @@ export function filtersFromParams(params, skillNames) {
   filters.postedWithin = optionValue(POSTED_WITHIN_OPTIONS, params.get(FILTER_PARAMS.postedWithin))
 
   // Skills keep the order they were chosen in.
-  const skillsByKey = new Map(skillNames.map((name) => [name.toLowerCase(), name]))
+  const skillsByKey = new Map()
+  for (const skill of skillNames ?? params.getAll(FILTER_PARAMS.skills)) {
+    const key = skill.trim().toLowerCase()
+    if (key && !skillsByKey.has(key)) skillsByKey.set(key, skill.trim())
+  }
   const skills = params
     .getAll(FILTER_PARAMS.skills)
     .map((skill) => skillsByKey.get(skill.trim().toLowerCase()))
