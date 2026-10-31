@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import CompanyLogo from '../components/jobs/CompanyLogo.jsx'
-import JobCard from '../components/jobs/JobCard.jsx'
+import JobCard, { JobCardSkeleton } from '../components/jobs/JobCard.jsx'
+import { JobListSkeleton } from '../components/jobs/JobList.jsx'
 import { mockJobs } from '../data/mockJobs.js'
 import { renderRoute } from './renderRoute.jsx'
 
@@ -125,5 +126,25 @@ describe('Discover Jobs page', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Job Details' })).toBeInTheDocument()
     expect(screen.getByText(firstJob.id)).toBeInTheDocument()
+  })
+})
+
+describe('job card placeholders', () => {
+  it('hides the card placeholder from assistive technology and gives it no text', () => {
+    const { container } = render(<JobCardSkeleton />)
+
+    expect(container.firstChild).toHaveAttribute('aria-hidden', 'true')
+    expect(container.firstChild).toHaveTextContent('')
+  })
+
+  it('lays out the requested number of placeholders in the job grid', () => {
+    const { container } = render(<JobListSkeleton count={4} />)
+    const grid = container.firstChild.firstChild
+
+    expect(container.firstChild).toHaveAttribute('aria-hidden', 'true')
+    expect(container.firstChild).toHaveClass('@container')
+    expect(grid).toHaveClass('grid', '@2xl:grid-cols-2', '@5xl:grid-cols-3')
+    expect(grid.children).toHaveLength(4)
+    expect(screen.queryAllByRole('listitem')).toEqual([])
   })
 })

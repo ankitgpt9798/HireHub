@@ -29,6 +29,9 @@ Early development. In place so far:
 - A simulated job API with delays and controllable failures. The listings load from it once
   and are shared by every page, and the Discover Jobs page shows loading, failed (with
   "Try again"), and no-listings states (see [Simulated API](#simulated-api))
+- Loading states: placeholder cards and filters with the layout of the real ones, a Refresh
+  button that keeps the current listings on screen while new ones load, and a notice when a
+  refresh fails (see [Loading states](#loading-states))
 
 The Dashboard, Job Details, and Saved Jobs pages are still placeholders: they show the
 planned layout and explain what will appear there. The features below are planned.
@@ -37,8 +40,8 @@ planned layout and explain what will appear there. The features below are planne
 
 - Job details page and saved jobs persisted in `localStorage`
 - Dashboard metrics computed from the listing data
-- Loading skeletons, an error boundary, a development-only control for the simulated API's
-  failures, and polished empty states
+- An error boundary, a development-only control for the simulated API's failures, and
+  polished empty states
 - Accessible, keyboard-friendly, responsive layout for desktop, tablet, and mobile
 
 ## Tech stack
@@ -166,15 +169,41 @@ straight away without new requests.
 
 **On the Discover Jobs page:**
 
-- While the listings load for the first time, the count says "Loading job listings…" and the
-  results show a spinner. The search box works straight away, while the filters, the Filters
-  button, and the sort order wait for the listings. A search, filters, order, and page in the
-  URL apply as soon as the listings arrive.
+- While the listings load for the first time, the count says "Loading job listings…" and
+  placeholders stand in for the cards and filters (see [Loading states](#loading-states)). The
+  search box works straight away, while the filter options, the Filters button, the sort order,
+  and Refresh wait for the listings. A search, filters, order, and page in the URL apply as
+  soon as the listings arrive.
 - If the request fails, the results explain that the listings could not be loaded and offer
   **Try again**. If there are no listings at all, they say so and offer **Refresh**. Both move
   focus to the "Job listings" heading and load the listings again.
 - The results area has `aria-busy="true"` while a request is on its way, and the count is a
   live region, so screen readers announce when the listings arrive.
+
+## Loading states
+
+- **Placeholders:** while the listings load for the first time, six placeholder cards (enough
+  to fill the screen in every layout) and placeholder filter groups stand in for the real ones.
+  They gently pulse, and stay still when the operating system asks for reduced motion. They
+  are hidden from assistive technology; the count above the results says "Loading job
+  listings…" in words instead.
+- **No jumping:** each placeholder block takes the same space as the text it stands for, so a
+  placeholder card is exactly as tall and wide as a job card with one row of skills (the usual
+  case once there is room for two columns). The search box, the Filters button, the sort order,
+  Refresh, and any filter chips from the URL are in place before the listings arrive, so
+  nothing above the results moves when they do. Measured in Edge, the cumulative layout shift
+  while the listings load is 0, on desktop and on a phone, with or without filters in the URL.
+- **Refresh:** the button next to the sort order loads the listings again. The current
+  listings stay on screen, dimmed and marked busy, while the count says "Refreshing job
+  listings…" and the button's icon spins. Search, filters, sorting, and pages keep working on
+  the listings on screen, and the new listings arrive under the same choices. Pressing Refresh
+  again starts over, and the earlier request's answer is ignored.
+- **A failed refresh** keeps the earlier listings and shows a notice (announced to screen
+  readers) with **Try again**.
+
+The pieces are `Skeleton` (`src/components/feedback/`), a pulsing block sized by its classes;
+`JobCardSkeleton` and `JobListSkeleton` (`src/components/jobs/`); `FilterPanelSkeleton`
+(`src/components/filters/`); and `MetricCard`'s `isLoading` option, for the dashboard metrics.
 
 ## Search
 
@@ -315,7 +344,7 @@ and a quick second change starts from the first. This needs the `RouterProvider`
   an accessible `label`), `Card`, `CardHeader`, `Badge`, `Avatar`, `PageHeader` (which also
   sets the document title), `Drawer` (a slide-over on a modal `<dialog>`, used by the
   mobile menu and the filters), and `Pagination` (Previous, Next, and page links built from a
-  `pageLink(page)` function). `EmptyState` (`components/feedback`) and `MetricCard`
+  `pageLink(page)` function). `EmptyState` and `Skeleton` (`components/feedback`) and `MetricCard`
   (`components/dashboard`) build on them.
 - **Job components** (`src/components/jobs`): `JobCard` shows a listing's role, company,
   work arrangement, employment type, experience level, location, salary ("Salary not
@@ -337,8 +366,8 @@ Tests run in a jsdom environment with Vitest and React Testing Library. Test fil
 | --------------------- | ---------------------------------------------------------- |
 | `routing.test.jsx`    | Routes, document titles, navigation state, skip link        |
 | `layout.test.jsx`     | App shell, mobile menu, notifications panel                 |
-| `ui.test.jsx`         | Reusable UI components, including the pagination bar        |
-| `jobs.test.jsx`       | Job card, company logo, and the Discover Jobs listing page   |
+| `ui.test.jsx`         | Reusable UI components, including the pagination bar, placeholders, and loading metric cards |
+| `jobs.test.jsx`       | Job card and its placeholder, company logo, and the Discover Jobs listing page |
 | `formatJob.test.js`   | Salary and posted-date formatting                           |
 | `mockJobs.test.js`    | Sample data integrity (ids, field values, dates, salaries)  |
 | `searchJobs.test.js`  | Search matching (case, accents, multiple words, word starts, special characters) and relevance scores |
@@ -354,6 +383,7 @@ Tests run in a jsdom environment with Vitest and React Testing Library. Test fil
 | `jobService.test.js`  | The simulated API: delays, copies, error and empty modes, failure rate, aborting, not-found |
 | `useRequest.test.jsx` | Request state, retries, keeping data while reloading, ignoring stale answers, aborting on unmount |
 | `listingsData.test.jsx` | The Discover Jobs page with the simulated API: loading, failure and Try again, no listings, URL state applied on arrival, listings shared between pages |
+| `loadingStates.test.jsx` | Slow requests: controls and chips in place while loading, searching and removing filters during a load, Refresh keeping listings on screen, changes made during a refresh, a repeated refresh, a failed refresh |
 
 ```powershell
 npm test

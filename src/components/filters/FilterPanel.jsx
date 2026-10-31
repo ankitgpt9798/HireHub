@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { Skeleton } from '../feedback/Skeleton.jsx'
 import {
   CHOICE_FILTERS,
   HOURS_PER_YEAR,
@@ -88,6 +89,29 @@ export default function FilterPanel({ filters, counts, skillOptions, onChange })
         counts={counts.skills}
         onChange={onChange}
       />
+    </div>
+  )
+}
+
+// Placeholder groups of options in the panel's layout, for while the listings load. Hidden from
+// assistive technology; the page says in words that the listings are loading.
+export function FilterPanelSkeleton() {
+  return (
+    <div aria-hidden="true" className="divide-y divide-slate-200">
+      {[3, 4, 4, 5].map((optionCount, group) => (
+        <div key={group} className="p-4">
+          <Skeleton className="my-[3px] h-3.5 w-28" />
+          <div className="mt-2 space-y-0.5">
+            {Array.from({ length: optionCount }, (_, option) => (
+              <div key={option} className="flex h-8 items-center gap-3">
+                <Skeleton className="size-4 shrink-0 rounded" />
+                <Skeleton className={option % 2 ? 'h-3.5 w-24' : 'h-3.5 w-16'} />
+                <Skeleton className="ml-auto h-3 w-4" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

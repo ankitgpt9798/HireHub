@@ -31,6 +31,12 @@ function getBusyArea() {
   return getListings().querySelector('[aria-busy]')
 }
 
+// The placeholder cards: the cards of the hidden skeleton grid in the results.
+function getSkeletonCards() {
+  const skeleton = getBusyArea().querySelector(':scope > [aria-hidden="true"]')
+  return skeleton ? [...skeleton.firstElementChild.children] : []
+}
+
 async function waitForListings() {
   await within(getListings()).findAllByRole('article')
 }
@@ -43,7 +49,10 @@ describe('job listings from the simulated API', () => {
     expect(getResultsSummary()).toHaveTextContent('Loading job listings…')
     expect(getBusyArea()).toHaveAttribute('aria-busy', 'true')
     expect(getListedTitles()).toEqual([])
-    expect(within(getFilterPanel()).getByText('Loading filters…')).toBeInTheDocument()
+    expect(getSkeletonCards()).toHaveLength(6)
+    // The filter panel shows placeholders, hidden from assistive technology, until it has options.
+    expect(within(getFilterPanel()).queryAllByRole('checkbox')).toEqual([])
+    expect(getFilterPanel().querySelector('[aria-hidden="true"]')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Filters' })).toBeDisabled()
     expect(screen.getByRole('combobox', { name: 'Sort by' })).toBeDisabled()
     // Typing a search does not have to wait.
@@ -53,6 +62,7 @@ describe('job listings from the simulated API', () => {
 
     expect(getResultsSummary()).toHaveTextContent(`${mockJobs.length} listings, showing 1–12`)
     expect(getBusyArea()).toHaveAttribute('aria-busy', 'false')
+    expect(getSkeletonCards()).toEqual([])
     expect(within(getFilterPanel()).getByRole('group', { name: 'Work arrangement' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Filters' })).toBeEnabled()
     expect(screen.getByRole('combobox', { name: 'Sort by' })).toBeEnabled()
@@ -61,11 +71,12 @@ describe('job listings from the simulated API', () => {
   it('applies the search, filters, and order in the URL once the listings arrive', async () => {
     setSimulation(SLOW)
     const router = await renderRoute('/jobs?q=engineer&skill=aws&sort=salary')
-    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument()
+    // The chips are in place before the listings arrive, with the skill as the URL spells it.
+    expect(screen.getByRole('button', { name: 'Remove filter: aws' })).toBeInTheDocument()
 
     await waitForListings()
 
-    // The skill from the URL is matched to the listings' spelling.
+    // Once the listings arrive, the skill is matched to their spelling.
     expect(screen.getByRole('button', { name: 'Remove filter: AWS' })).toBeInTheDocument()
     const expected = sortJobs(
       mockJobs.filter((job) => /\bengineer/i.test(job.title) && job.skills.includes('AWS')),

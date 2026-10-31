@@ -3,22 +3,24 @@ import {
   FileQuestion,
   Inbox,
   Info,
-  LoaderCircle,
+  RefreshCw,
   RotateCw,
   SearchX,
   SlidersHorizontal,
+  TriangleAlert,
 } from 'lucide-react'
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import ActiveFilters from '../components/filters/ActiveFilters.jsx'
 import FilterDrawer from '../components/filters/FilterDrawer.jsx'
-import FilterPanel from '../components/filters/FilterPanel.jsx'
+import FilterPanel, { FilterPanelSkeleton } from '../components/filters/FilterPanel.jsx'
 import SearchBar from '../components/filters/SearchBar.jsx'
 import SortSelect from '../components/filters/SortSelect.jsx'
-import JobList from '../components/jobs/JobList.jsx'
+import JobList, { JobListSkeleton } from '../components/jobs/JobList.jsx'
 import { Badge } from '../components/ui/Badge.jsx'
 import { Button, ButtonLink } from '../components/ui/Button.jsx'
 import { Card } from '../components/ui/Card.jsx'
+import { IconButton } from '../components/ui/IconButton.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { Pagination } from '../components/ui/Pagination.jsx'
 import { useJobFilters } from '../hooks/useJobFilters.js'
@@ -26,6 +28,7 @@ import { useJobs } from '../hooks/useJobs.js'
 import { useResultsPage } from '../hooks/useResultsPage.js'
 import { useSearchQuery } from '../hooks/useSearchQuery.js'
 import { useSortOrder } from '../hooks/useSortOrder.js'
+import { cn } from '../utils/cn.js'
 import {
   EMPTY_FILTERS,
   filterJobs,
@@ -44,20 +47,14 @@ const NO_JOBS = []
 // Fills whole rows in the one-, two-, and three-column layouts of the job list.
 const JOBS_PER_PAGE = 12
 
+// Placeholder cards while the listings load: enough to fill the screen in every layout.
+const SKELETON_CARD_COUNT = 6
+
 // "24 listings", or "3 of 24 listings match “react” and your filters" while searching or filtering.
 function resultsSummary(count, total, query, isFiltered) {
   if (!query && !isFiltered) return `${total} listings`
   const criteria = [query && `“${query}”`, isFiltered && 'your filters'].filter(Boolean).join(' and ')
   return `${count} of ${total} listings ${count === 1 ? 'matches' : 'match'} ${criteria}`
-}
-
-// While the listings load for the first time.
-function ListingsLoading() {
-  return (
-    <Card className="flex justify-center py-16">
-      <LoaderCircle aria-hidden="true" className="size-6 animate-spin text-brand-600" />
-    </Card>
-  )
 }
 
 function ListingsError({ onRetry }) {
@@ -76,6 +73,24 @@ function ListingsError({ onRetry }) {
         }
       />
     </Card>
+  )
+}
+
+// When loading the listings again fails while earlier ones are still on screen.
+function RefreshFailedNotice({ onRetry }) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+    >
+      <p className="flex items-start gap-2 text-sm text-amber-900">
+        <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+        The listings could not be refreshed, so these are the ones loaded earlier.
+      </p>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
   )
 }
 
@@ -174,6 +189,9 @@ export default function DiscoverJobsPage() {
   const hasListings = allJobs.length > 0
   const isLoadingListings = !hasListings && status === 'loading'
   const failedToLoad = !hasListings && status === 'error'
+  // Loading again, or failing to, with the earlier listings still on screen.
+  const isRefreshing = hasListings && status === 'loading'
+  const refreshFailed = hasListings && status === 'error'
   // Null until the listings arrive, so skills in the URL are kept until they can be checked.
   const skillOptions = useMemo(
     () => (loadedJobs ? getSkillOptions(loadedJobs) : null),
@@ -238,11 +256,12 @@ export default function DiscoverJobsPage() {
   let summary = resultsSummary(jobs.length, allJobs.length, query, isFiltered)
   if (pageCount > 1 && pageJobs.length > 0) summary += `, showing ${firstItem}–${lastItem}`
   if (isLoadingListings) summary = 'Loading job listings…'
+  if (isRefreshing) summary = 'Refreshing job listings…'
   if (failedToLoad) summary = 'The job listings could not be loaded.'
 
   let results
   if (isLoadingListings) {
-    results = <ListingsLoading />
+    results = <JobListSkeleton count={SKELETON_CARD_COUNT} />
   } else if (failedToLoad) {
     results = <ListingsError onRetry={reloadListings} />
   } else if (!hasListings) {
@@ -339,13 +358,13 @@ export default function DiscoverJobsPage() {
               </Button>
             )}
           </div>
-          {hasListings ? (
-            <FilterPanel {...panelProps} />
-          ) : (
+          {hasListings && <FilterPanel {...panelProps} />}
+          {isLoadingListings && <FilterPanelSkeleton />}
+          {!hasListings && !isLoadingListings && (
             <p className="p-4 text-sm text-slate-500">
-              {isLoadingListings && 'Loading filters…'}
-              {failedToLoad && 'Filters are available once the listings load.'}
-              {status === 'success' && 'There are no listings to filter.'}
+              {failedToLoad
+                ? 'Filters are available once the listings load.'
+                : 'There are no listings to filter.'}
             </p>
           )}
         </Card>
@@ -373,11 +392,23 @@ export default function DiscoverJobsPage() {
                 <Info aria-hidden="true" className="size-3.5" />
                 Sample data, not live postings
               </Badge>
-              <SortSelect value={sort} onChange={setSort} disabled={!hasListings} />
+              <div className="flex items-center gap-2">
+                <SortSelect value={sort} onChange={setSort} disabled={!hasListings} />
+                {/* Stays enabled while refreshing: pressing it again starts over. */}
+                <IconButton
+                  icon={RefreshCw}
+                  label="Refresh listings"
+                  onClick={reload}
+                  disabled={!hasListings}
+                  iconClassName={isRefreshing ? 'motion-safe:animate-spin' : undefined}
+                  className="border border-slate-300 bg-white shadow-sm disabled:pointer-events-none disabled:opacity-50"
+                />
+              </div>
             </div>
           </div>
 
-          {hasListings && isFiltered && (
+          {/* Shown while the listings load too, so the results do not move down when they arrive. */}
+          {isFiltered && (
             <ActiveFilters
               activeFilters={activeFilters}
               onRemove={(filter) => updateFilters((current) => removeFilter(current, filter))}
@@ -386,8 +417,14 @@ export default function DiscoverJobsPage() {
             />
           )}
 
-          {/* Busy while the listings load, including when they are loaded again. */}
-          <div aria-busy={status === 'loading'} className="space-y-4">
+          {refreshFailed && <RefreshFailedNotice onRetry={reloadListings} />}
+
+          {/* Busy while the listings load, including when they are loaded again. Results that
+              are being refreshed are dimmed, since newer ones are on their way. */}
+          <div
+            aria-busy={status === 'loading'}
+            className={cn('space-y-4 transition-opacity', isRefreshing && 'opacity-60')}
+          >
             {results}
           </div>
         </section>

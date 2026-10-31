@@ -1,7 +1,8 @@
 import { cn } from '../../utils/cn.js'
 
 // Icon-only button; `label` is required because it is the button's accessible name.
-export function IconButton({ icon: Icon, label, className, ...props }) {
+// `iconClassName` adds classes to the icon, for example to spin it while something loads.
+export function IconButton({ icon: Icon, label, className, iconClassName, ...props }) {
   return (
     <button
       type="button"
@@ -12,7 +13,7 @@ export function IconButton({ icon: Icon, label, className, ...props }) {
       )}
       {...props}
     >
-      <Icon aria-hidden="true" className="size-5" />
+      <Icon aria-hidden="true" className={cn('size-5', iconClassName)} />
     </button>
   )
 }

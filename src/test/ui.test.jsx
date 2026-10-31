@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import MetricCard from '../components/dashboard/MetricCard.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
+import { Skeleton } from '../components/feedback/Skeleton.jsx'
 import { Avatar } from '../components/ui/Avatar.jsx'
 import { Badge } from '../components/ui/Badge.jsx'
 import { Button, ButtonLink } from '../components/ui/Button.jsx'
@@ -48,6 +49,14 @@ describe('Button', () => {
 })
 
 describe('IconButton', () => {
+  it('passes extra classes to its icon', () => {
+    render(<IconButton icon={Star} label="Refresh" iconClassName="animate-spin" />)
+    expect(screen.getByRole('button', { name: 'Refresh' }).querySelector('svg')).toHaveClass(
+      'size-5',
+      'animate-spin',
+    )
+  })
+
   it('uses the label as its accessible name and hides the icon', () => {
     render(<IconButton icon={Star} label="Favorite" />)
     const button = screen.getByRole('button', { name: 'Favorite' })
@@ -112,6 +121,26 @@ describe('MetricCard', () => {
     render(<MetricCard label="Saved jobs" value={0} icon={Star} />)
     expect(screen.getByText('0')).toBeInTheDocument()
     expect(screen.queryByText('No data yet')).not.toBeInTheDocument()
+  })
+
+  it('shows a placeholder and says it is loading while its data loads', () => {
+    const { container } = render(<MetricCard label="Total jobs" value={24} icon={Star} isLoading />)
+
+    expect(screen.getByText('Total jobs')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.queryByText('24')).not.toBeInTheDocument()
+    expect(screen.queryByText('No data yet')).not.toBeInTheDocument()
+    expect(container.firstChild).toHaveAttribute('aria-busy', 'true')
+  })
+})
+
+describe('Skeleton', () => {
+  it('is a pulsing block, sized by its classes and hidden from assistive technology', () => {
+    const { container } = render(<Skeleton className="h-4 w-32" />)
+    const block = container.firstChild
+
+    expect(block).toHaveAttribute('aria-hidden', 'true')
+    expect(block).toHaveClass('h-4', 'w-32', 'motion-safe:animate-pulse')
   })
 })
 
